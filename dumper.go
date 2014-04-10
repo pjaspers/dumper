@@ -70,10 +70,7 @@ func main() {
 		os.Exit(2)
 	}
 	name := fmt.Sprintf("%s_%s_%s", filepath.Base(filepath.Dir(path)), environment[0:3], time.Now().Format("20060102"))
-	// fmt.Printf(name)
-	// fmt.Printf("Environment: %s Force: %t Path %s ", environment, force, path)
 	dat, err := ioutil.ReadFile(file)
-	// fmt.Print(string(dat))
 
 	m := make(map[interface{}]interface{})
 	err = yaml.Unmarshal([]byte(dat), &m)
