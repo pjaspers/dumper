@@ -16,15 +16,24 @@ import (
 )
 
 
-func green(s string) (o string){
-	s = "\033[32m" + s + "\033[0m"
-	return s
+func green(in string) (out string){
+	in = "\033[32m" + in + "\033[0m"
+	return in
+}
+
+func red(in string) (out string){
+	in = "\033[33m" + in + "\033[0m"
+	return in
 }
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "usage: %s <environment>\n", os.Args[0])
 	flag.PrintDefaults()
 	os.Exit(2)
+}
+
+func sqlite3_dump(l interface {}, name string) {
+	fmt.Printf("sqlite3 db/development.sqlite3 .dump > dump")
 }
 
 func mysql_dump(l interface {}, name string) {
@@ -38,6 +47,17 @@ func mysql_dump(l interface {}, name string) {
 	fmt.Printf("%s\n\n%s", password, command)
 }
 
+func mysql_restore(l interface {}, name string) {
+	k := l.(map[interface{}]interface{})
+  password := fmt.Sprintf("Password: %s", k["password"])
+	host, ok := k["host"]
+	if !ok {
+		host = "localhost"
+	}
+  command := fmt.Sprintf("mysql -u %s -p -h %s %s < %s.sql", k["username"], host, k["database"], name)
+	fmt.Printf("%s\n\n%s", password, command)
+}
+
 func pg_dump(l interface {}, name string) {
 	k := l.(map[interface{}]interface{})
 	host, ok := k["host"]
@@ -45,6 +65,16 @@ func pg_dump(l interface {}, name string) {
 		host = "localhost"
 	}
   fmt.Printf("PGPASSWORD=%s pg_dump -Fc --no-acl --no-owner --clean -U %s -h %s %s > %s.dump", k["password"], k["username"], host, k["database"], name)
+}
+
+func pg_restore(l interface {}, name string) {
+	k := l.(map[interface{}]interface{})
+	host, ok := k["host"]
+	if !ok {
+		host = "localhost"
+	}
+	s := fmt.Sprintf("PGPASSWORD=%s pg_restore --verbose --clean --no-acl --no-owner -h %s -U %s -d %s %s.dump", k["password"], host, k["database"], name)
+	fmt.Printf("%s", s)
 }
 
 func main() {
@@ -86,8 +116,16 @@ func main() {
 	fmt.Printf("%s\n\n", green("Dump:"))
 	if (foundPg) {
 		pg_dump(m[environment], name)
+		if force {
+			fmt.Printf("\n%s\n\n", red("Restore:"))
+			pg_restore(m[environment], name)
+		}
 	}
 	if (foundMysql) {
 		mysql_dump(m[environment], name)
+		if force {
+			fmt.Printf("\n%s\n\n", red("Restore:"))
+			mysql_restore(m[environment], name)
+		}
 	}
 }
