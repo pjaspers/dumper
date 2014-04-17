@@ -5,23 +5,22 @@ import (
 	"log"
 	"strings"
 
-	"io/ioutil"
-	"gopkg.in/yaml.v1"
 	"flag"
+	"gopkg.in/yaml.v1"
+	"io/ioutil"
 	"os"
 
 	"path/filepath"
-	"time"
 	"regexp"
+	"time"
 )
 
-
-func green(in string) (out string){
+func green(in string) (out string) {
 	in = "\033[32m" + in + "\033[0m"
 	return in
 }
 
-func red(in string) (out string){
+func red(in string) (out string) {
 	in = "\033[33m" + in + "\033[0m"
 	return in
 }
