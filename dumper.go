@@ -32,42 +32,51 @@ func usage() {
 	os.Exit(2)
 }
 
-func sqlite3_dump(l interface {}, name string) {
+func sqlite3_dump(l interface{}, name string) {
 	fmt.Printf("sqlite3 db/development.sqlite3 .dump > dump")
 }
 
-func mysql_dump(l interface {}, name string) {
+func mysql_dump(l interface{}, name string) {
 	k := l.(map[interface{}]interface{})
-  password := fmt.Sprintf("Password: %s", k["password"])
+	password := fmt.Sprintf("Password: %s", k["password"])
 	host, ok := k["host"]
 	if !ok {
 		host = "localhost"
 	}
-  command := fmt.Sprintf("mysqldump -u %s -p -h %s %s > %s.sql", k["username"], host, k["database"], name)
+	command := fmt.Sprintf("mysqldump -u %s -p -h %s %s > %s.sql", k["username"], host, k["database"], name)
 	fmt.Printf("%s\n\n%s", password, command)
 }
 
-func mysql_restore(l interface {}, name string) {
+func mysql_restore(l interface{}, name string) {
 	k := l.(map[interface{}]interface{})
-  password := fmt.Sprintf("Password: %s", k["password"])
+	password := fmt.Sprintf("Password: %s", k["password"])
 	host, ok := k["host"]
 	if !ok {
 		host = "localhost"
 	}
-  command := fmt.Sprintf("mysql -u %s -p -h %s %s < %s.sql", k["username"], host, k["database"], name)
+	command := fmt.Sprintf("mysql -u %s -p -h %s %s < %s.sql", k["username"], host, k["database"], name)
 	fmt.Printf("%s\n\n%s", password, command)
 }
 
-func pg_dump(l interface {}, name string) {
-	k := l.(map[interface{}]interface{})
-	host, ok := k["host"]
-	if !ok {
-		host = "localhost"
+func fetch(l map[string]interface{}, key string, value interface{}) (out interface{}) {
+	if val, ok := l[key]; ok {
+		return val
+	} else {
+		return value
 	}
-  fmt.Printf("PGPASSWORD=%s pg_dump -Fc --no-acl --no-owner --clean -U %s -h %s %s > %s.dump", k["password"], k["username"], host, k["database"], name)
 }
 
-func pg_restore(l interface {}, name string) {
+func pg_dump(data map[string]interface{}, name string) (out string) {
+	username := fetch(data, "username", "").(string)
+	hostname := fetch(data, "host", "localhost").(string)
+	command := fmt.Sprintf("pg_dump -Fc --no-acl --no-owner --clean -U %s -h %s %s > %s.dump", username, hostname, data["database"], name)
+	if pass, ok := data["password"]; ok {
+		command = fmt.Sprintf("PGPASSWORD=%s %s", pass, command)
+	}
+	return command
+}
+
+func pg_restore(l interface{}, name string) {
 	k := l.(map[interface{}]interface{})
 	host, ok := k["host"]
 	if !ok {
@@ -102,29 +111,32 @@ func main() {
 	name := fmt.Sprintf("%s_%s_%s", filepath.Base(filepath.Dir(path)), environment[0:3], time.Now().Format("20060102"))
 	dat, err := ioutil.ReadFile(file)
 
-	m := make(map[interface{}]interface{})
+	m := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(dat), &m)
 	if err != nil {
 		log.Fatalf("Error parsing yaml: %v", err)
 	}
-	adapter := fmt.Sprintf("%s", (m[environment].(map[interface{}]interface{}))["adapter"])
+
+	data := m[environment].(map[string]interface{})
+	adapter := fmt.Sprintf("%s", data["adapter"])
 	pg := regexp.MustCompile("postgres")
 	mysql := regexp.MustCompile("mysql")
 	foundPg := pg.MatchString(adapter)
 	foundMysql := mysql.MatchString(adapter)
 
 	fmt.Printf("%s\n\n", green("Dump:"))
-	if (foundPg) {
-		pg_dump(m[environment], name)
+	if foundPg {
+		dump := pg_dump(data, name)
+		fmt.Printf("kk %s", green(dump))
 		if force {
 			fmt.Printf("\n%s\n\n", red("Restore:"))
 			pg_restore(m[environment], name)
 		}
 	}
-	if (foundMysql) {
+	if foundMysql {
 		mysql_dump(m[environment], name)
 		if force {
-			fmt.Printf("\n%s\n\n", red("Restore:"))
+			fmt.Printf("\n\n%s\n\n", red("Restore:"))
 			mysql_restore(m[environment], name)
 		}
 	}
