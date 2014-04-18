@@ -38,6 +38,32 @@ func TestPGDumpSetsHostIfFound(t *testing.T) {
 	assert.True(t, strings.Contains(r, "-h somehost"))
 }
 
+func TestGetEnvironmentWithoutArgumnet(t *testing.T) {
+	assert.Equal(t, "development", get_environment(""))
+}
+
+func TestGetEnvironmentWithArgument(t *testing.T) {
+	assert.Equal(t, "staging", get_environment("staging"))
+}
+
+func TestIfNoPathSuppliedGetCurrentDir(t *testing.T) {
+	currentDir = func() (s string) { return "/some/path/to/current/dir" }
+	dieIfNotExist = func(path string) {}
+	assert.Equal(t, "/some/path/to/current/dir/config/database.yml", get_yaml_path(""))
+}
+
+func TestIfPathSuppliedFindYaml(t *testing.T) {
+	currentDir = func() (s string) { return "/this/dir" }
+	dieIfNotExist = func(path string) {}
+	assert.Equal(t, "/this/dir/config/database.yml", get_yaml_path(""))
+}
+
+func TestIfYamlGivenUseAllTheYamls(t *testing.T) {
+	currentDir = func() (s string) { return "" }
+	dieIfNotExist = func(path string) {}
+	assert.Equal(t, "ding.yml", get_yaml_path("ding.yml"))
+}
+
 func TestPGDumpWithAllData(t *testing.T) {
 	k := map[string]interface{}{
 		"host":     "somehost",

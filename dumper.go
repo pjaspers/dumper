@@ -85,6 +85,36 @@ func pg_restore(l interface{}, name string) {
 	fmt.Printf("%s", s)
 }
 
+func get_environment(argument string) (environment string){
+	environment = "development"
+	if strings.TrimSpace(argument) != "" {
+		environment = strings.TrimSpace(argument)
+	}
+	return environment
+}
+
+var currentDir = func() string {
+	p,_ := filepath.Abs(filepath.Dir(os.Args[0]))
+	return p
+}
+
+var dieIfNotExist = func(path string) {
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "No config file found: %s\n", path)
+		os.Exit(2)
+	}
+}
+
+func get_yaml_path (path string) (out string) {
+	if path == "" {
+		path = currentDir()
+	}
+	path = filepath.Join(path, "config", "database.yml")
+	dieIfNotExist(path)
+	return path
+}
+
 func main() {
 	flag.Usage = usage
 	var force bool
@@ -93,23 +123,15 @@ func main() {
 	flag.BoolVar(&force, "F", false, "Show restore operation")
 	flag.StringVar(&path, "p", "", "Path to yaml (otherwise config/database.yml")
 	flag.Parse()
-	environment := "development"
-	if strings.TrimSpace(flag.Arg(0)) != "" {
-		environment = strings.TrimSpace(flag.Arg(0))
-	}
-	if path == "" {
-		current_dir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
-		path = current_dir
-	}
-	file := filepath.Join(path, "config", "database.yml")
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "No config file found: %s\n", path)
-		os.Exit(2)
-	}
-	name := fmt.Sprintf("%s_%s_%s", filepath.Base(filepath.Dir(path)), environment[0:3], time.Now().Format("20060102"))
-	dat, err := ioutil.ReadFile(file)
 
+	environment := get_environment(flag.Arg(0))
+	yamlFile := get_yaml_path(path)
+
+	name := fmt.Sprintf("%s_%s_%s", filepath.Base(filepath.Dir(path)), environment[0:3], time.Now().Format("20060102"))
+	dat, err := ioutil.ReadFile(yamlFile)
+	if err != nil {
+		fmt.Printf("%s", err)
+	}
 	m := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(dat), &m)
 	if err != nil {
