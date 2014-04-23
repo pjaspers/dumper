@@ -65,12 +65,12 @@ func fetch(l map[string]interface{}, key string, value interface{}) (out interfa
 	}
 }
 
-func pg_dump(data map[string]interface{}, name string) (out string) {
-	username := fetch(data, "username", "").(string)
-	hostname := fetch(data, "host", "localhost").(string)
-	command := fmt.Sprintf("pg_dump -Fc --no-acl --no-owner --clean -U %s -h %s %s > %s.dump", username, hostname, data["database"], name)
-	if pass, ok := data["password"]; ok {
-		command = fmt.Sprintf("PGPASSWORD=%s %s", pass, command)
+func pg_dump(config DbConfig, name string) (out string) {
+	username := config.Username
+	hostname := config.Host
+	command := fmt.Sprintf("pg_dump -Fc --no-acl --no-owner --clean -U %s -h %s %s > %s.dump", username, hostname, config.Database, name)
+	if len(config.Password) > 0 {
+		command = fmt.Sprintf("PGPASSWORD=%s %s", config.Password, command)
 	}
 	return command
 }
@@ -91,6 +91,12 @@ func get_environment(argument string) (environment string){
 		environment = strings.TrimSpace(argument)
 	}
 	return environment
+}
+
+func get_config(yamlData []byte, environment string) (config DbConfig, err error){
+	m := make(map[string]DbConfig)
+	err = yaml.Unmarshal(yamlData, &m)
+	return m[environment], err
 }
 
 var currentDir = func() string {
@@ -115,6 +121,14 @@ func get_yaml_path (path string) (out string) {
 	return path
 }
 
+type DbConfig struct {
+	Adapter string
+	Host string
+	Database string
+	Username string
+	Password string
+}
+
 func main() {
 	flag.Usage = usage
 	var force bool
@@ -128,18 +142,15 @@ func main() {
 	yamlFile := get_yaml_path(path)
 
 	name := fmt.Sprintf("%s_%s_%s", filepath.Base(filepath.Dir(path)), environment[0:3], time.Now().Format("20060102"))
-	dat, err := ioutil.ReadFile(yamlFile)
+	yamlData, err := ioutil.ReadFile(yamlFile)
 	if err != nil {
-		fmt.Printf("%s", err)
+		log.Fatalf("Error Reading Yaml: %v", err)
 	}
-	m := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(dat), &m)
+	config, err := get_config(yamlData, environment)
 	if err != nil {
-		log.Fatalf("Error parsing yaml: %v", err)
+		log.Fatalf("Error Parsing Yaml: %v", err)
 	}
-
-	data := m[environment].(map[string]interface{})
-	adapter := fmt.Sprintf("%s", data["adapter"])
+	adapter := config.Adapter
 	pg := regexp.MustCompile("postgres")
 	mysql := regexp.MustCompile("mysql")
 	foundPg := pg.MatchString(adapter)
@@ -147,18 +158,18 @@ func main() {
 
 	fmt.Printf("%s\n\n", green("Dump:"))
 	if foundPg {
-		dump := pg_dump(data, name)
+		dump := pg_dump(config, name)
 		fmt.Printf("kk %s", green(dump))
 		if force {
 			fmt.Printf("\n%s\n\n", red("Restore:"))
-			pg_restore(m[environment], name)
+			// pg_restore(m[environment], name)
 		}
 	}
 	if foundMysql {
-		mysql_dump(m[environment], name)
+		// mysql_dump(m[environment], name)
 		if force {
 			fmt.Printf("\n\n%s\n\n", red("Restore:"))
-			mysql_restore(m[environment], name)
+			// mysql_restore(m[environment], name)
 		}
 	}
 }
