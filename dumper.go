@@ -35,26 +35,20 @@ func sqlite3_dump(l interface{}, name string) {
 	fmt.Printf("sqlite3 db/development.sqlite3 .dump > dump")
 }
 
-func mysql_dump(l interface{}, name string) {
-	k := l.(map[interface{}]interface{})
-	password := fmt.Sprintf("Password: %s", k["password"])
-	host, ok := k["host"]
-	if !ok {
-		host = "localhost"
+func mysql_dump(config DbConfig, name string) (out string){
+	command := fmt.Sprintf("mysqldump -u %s -p -h %s %s > %s.sql", config.Username, config.Host, config.Database, name)
+	if len(config.Password) > 0 {
+		command = fmt.Sprintf("Password: %s\n\n%s", config.Password, command)
 	}
-	command := fmt.Sprintf("mysqldump -u %s -p -h %s %s > %s.sql", k["username"], host, k["database"], name)
-	fmt.Printf("%s\n\n%s", password, command)
+	return command
 }
 
-func mysql_restore(l interface{}, name string) {
-	k := l.(map[interface{}]interface{})
-	password := fmt.Sprintf("Password: %s", k["password"])
-	host, ok := k["host"]
-	if !ok {
-		host = "localhost"
+func mysql_restore(config DbConfig, name string) (out string){
+	command := fmt.Sprintf("mysql -u %s -p -h %s %s < %s.sql", config.Username, config.Host, config.Database, name)
+	if len(config.Password) > 0 {
+		command = fmt.Sprintf("Password: %s\n\n%s", config.Password, command)
 	}
-	command := fmt.Sprintf("mysql -u %s -p -h %s %s < %s.sql", k["username"], host, k["database"], name)
-	fmt.Printf("%s\n\n%s", password, command)
+	return command
 }
 
 func fetch(l map[string]interface{}, key string, value interface{}) (out interface{}) {
@@ -64,6 +58,7 @@ func fetch(l map[string]interface{}, key string, value interface{}) (out interfa
 		return value
 	}
 }
+
 
 func pg_dump(config DbConfig, name string) (out string) {
 	username := config.Username
@@ -75,14 +70,14 @@ func pg_dump(config DbConfig, name string) (out string) {
 	return command
 }
 
-func pg_restore(l interface{}, name string) {
-	k := l.(map[interface{}]interface{})
-	host, ok := k["host"]
-	if !ok {
-		host = "localhost"
+func pg_restore(config DbConfig, name string) (out string){
+	username := config.Username
+	hostname := config.Host
+	command := fmt.Sprintf("pg_restore --verbose --clean --no-acl --no-owner -h %s -U %s -d %s %s.dump", hostname, username, config.Database, name)
+	if len(config.Password) > 0 {
+		command = fmt.Sprintf("PGPASSWORD=%s %s", config.Password, command)
 	}
-	s := fmt.Sprintf("PGPASSWORD=%s pg_restore --verbose --clean --no-acl --no-owner -h %s -U %s -d %s %s.dump", k["password"], host, k["database"], name)
-	fmt.Printf("%s", s)
+	return command
 }
 
 func get_environment(argument string) (environment string){
@@ -93,10 +88,29 @@ func get_environment(argument string) (environment string){
 	return environment
 }
 
+func (self *DbConfig) SetDefaults() {
+	if self.Host == "" {
+		self.Host = "localhost"
+	}
+}
+
 func get_config(yamlData []byte, environment string) (config DbConfig, err error){
 	m := make(map[string]DbConfig)
 	err = yaml.Unmarshal(yamlData, &m)
-	return m[environment], err
+	if err != nil {
+		return m[environment], err
+	}
+	config, ok := m[environment]
+	if !ok {
+		var keys[]string
+		for key, _ := range m {
+			keys = append(keys, key)
+		}
+		err := fmt.Errorf("No such environment found. Use one of: %s", keys)
+		return m[environment], err
+	}
+	config.SetDefaults()
+	return config, nil
 }
 
 var currentDir = func() string {
@@ -104,21 +118,20 @@ var currentDir = func() string {
 	return p
 }
 
-var dieIfNotExist = func(path string) {
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "No config file found: %s\n", path)
-		os.Exit(2)
-	}
+var file_exists = func(path string) (err error) {
+	_, err = os.Stat(path)
+	return err
 }
 
-func get_yaml_path (path string) (out string) {
+func get_yaml_path (path string) (out string, err error) {
 	if path == "" {
 		path = currentDir()
 	}
-	path = filepath.Join(path, "config", "database.yml")
-	dieIfNotExist(path)
-	return path
+	if filepath.Ext(path) != ".yml" {
+		path = filepath.Join(path, "config", "database.yml")
+	}
+	err = file_exists(path)
+	return path, err
 }
 
 type DbConfig struct {
@@ -139,9 +152,11 @@ func main() {
 	flag.Parse()
 
 	environment := get_environment(flag.Arg(0))
-	yamlFile := get_yaml_path(path)
-
-	name := fmt.Sprintf("%s_%s_%s", filepath.Base(filepath.Dir(path)), environment[0:3], time.Now().Format("20060102"))
+	yamlFile, err := get_yaml_path(path)
+	if err != nil {
+		log.Fatalf("No Yaml file found: %v", err)
+	}
+	name := fmt.Sprintf("%s_%s_%s", filepath.Base(filepath.Dir(filepath.Dir(yamlFile))), environment[0:3], time.Now().Format("20060102"))
 	yamlData, err := ioutil.ReadFile(yamlFile)
 	if err != nil {
 		log.Fatalf("Error Reading Yaml: %v", err)
@@ -159,17 +174,17 @@ func main() {
 	fmt.Printf("%s\n\n", green("Dump:"))
 	if foundPg {
 		dump := pg_dump(config, name)
-		fmt.Printf("kk %s", green(dump))
+		fmt.Printf("%s\n", green(dump))
 		if force {
 			fmt.Printf("\n%s\n\n", red("Restore:"))
-			// pg_restore(m[environment], name)
+			fmt.Printf("%s", pg_restore(config, name))
 		}
 	}
 	if foundMysql {
-		// mysql_dump(m[environment], name)
+		fmt.Printf("%s\n", mysql_dump(config, name))
 		if force {
 			fmt.Printf("\n\n%s\n\n", red("Restore:"))
-			// mysql_restore(m[environment], name)
+			mysql_restore(config, name)
 		}
 	}
 }

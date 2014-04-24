@@ -20,20 +20,25 @@ func TestFetchWithoutExistingKey(t *testing.T) {
 	assert.Equal(t, "not key", fetch(k, "x", "not key"))
 }
 
+func TestGetConfigSetsDefaults(t *testing.T) {
+	config, _ := get_config([]byte(""), "dev")
+	assert.Equal(t, "localhost", config.Host)
+}
+
 func TestPGDumpSkipsPasswordIfNoneFound(t *testing.T) {
-	k := map[string]interface{}{}
+	k := DbConfig{}
 	r := pg_dump(k, "bla")
 	assert.False(t, strings.Contains(r, "PGPASSWORD"))
 }
 
 func TestPGDumpSetsLocalhostIfNoHostFound(t *testing.T) {
-	k := map[string]interface{}{}
+	k := DbConfig{}
 	r := pg_dump(k, "bla")
 	assert.True(t, strings.Contains(r, "-h localhost"))
 }
 
 func TestPGDumpSetsHostIfFound(t *testing.T) {
-	k := map[string]interface{}{"host": "somehost"}
+	k := DbConfig{Host: "somehost"}
 	r := pg_dump(k, "bla")
 	assert.True(t, strings.Contains(r, "-h somehost"))
 }
@@ -48,28 +53,30 @@ func TestGetEnvironmentWithArgument(t *testing.T) {
 
 func TestIfNoPathSuppliedGetCurrentDir(t *testing.T) {
 	currentDir = func() (s string) { return "/some/path/to/current/dir" }
-	dieIfNotExist = func(path string) {}
-	assert.Equal(t, "/some/path/to/current/dir/config/database.yml", get_yaml_path(""))
+	path, _ := get_yaml_path("")
+	assert.Equal(t, "/some/path/to/current/dir/config/database.yml", path)
 }
 
 func TestIfPathSuppliedFindYaml(t *testing.T) {
 	currentDir = func() (s string) { return "/this/dir" }
-	dieIfNotExist = func(path string) {}
-	assert.Equal(t, "/this/dir/config/database.yml", get_yaml_path(""))
+	file_exists = func(path string) (e error){return nil}
+	path, _ := get_yaml_path("/some/other/dir")
+	assert.Equal(t, "/some/other/dir/config/database.yml", path)
 }
 
 func TestIfYamlGivenUseAllTheYamls(t *testing.T) {
 	currentDir = func() (s string) { return "" }
-	dieIfNotExist = func(path string) {}
-	assert.Equal(t, "ding.yml", get_yaml_path("ding.yml"))
+	file_exists = func(path string) (e error){return nil}
+	path, _ := get_yaml_path("ding.yml")
+	assert.Equal(t, "ding.yml", path)
 }
 
 func TestPGDumpWithAllData(t *testing.T) {
-	k := map[string]interface{}{
-		"host":     "somehost",
-		"username": "Franz",
-		"password": "Bob",
-		"database": "box",
+	k := DbConfig{
+		Host:     "somehost",
+		Username: "Franz",
+		Password: "Bob",
+		Database: "box",
 	}
 	expected := "PGPASSWORD=Bob pg_dump -Fc --no-acl --no-owner --clean -U Franz -h somehost box > franz_bob.dump"
 	assert.Equal(t, expected, pg_dump(k, "franz_bob"))
