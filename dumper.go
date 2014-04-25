@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"flag"
@@ -15,14 +14,50 @@ import (
 	"time"
 )
 
+// # Database Config struct.
+//
+// Each Rails `database.yml` environment block has the following structure, so
+// it maps to this struct.
+type DbConfig struct {
+	Adapter string
+	Host string
+	Database string
+	Username string
+	Password string
+}
+
+// If no host is set, assume localhost.
+func (self *DbConfig) SetDefaults() {
+	if self.Host == "" {
+		self.Host = "localhost"
+	}
+}
+
+// These get used later on to find the correct methods to call for dumping or
+// restoring (`pg_dump`)
+func (self *DbConfig) ShortAdapter() (short string){
+	if (regexp.MustCompile("postgres").MatchString(self.Adapter)){ return "pg"}
+	if (regexp.MustCompile("mysql").MatchString(self.Adapter))	 { return "mysql"}
+	if (regexp.MustCompile("sqlite").MatchString(self.Adapter))	 { return "sqlite"}
+
+	return self.Adapter
+}
+
+// # Utilities
+//
+// Returns a green string in ANSI codes
 func green(in string) (out string) {
 	in = "\033[32m" + in + "\033[0m"
 	return in
 }
 
 func red(in string) (out string) {
-	in = "\033[33m" + in + "\033[0m"
+	in = "\033[31m" + in + "\033[0m"
 	return in
+}
+
+func printError(message string) {
+	fmt.Println(red(fmt.Sprintf("\n\t%s", message)))
 }
 
 func usage() {
@@ -79,20 +114,6 @@ func get_environment(argument string) (environment string){
 	return environment
 }
 
-func (self *DbConfig) SetDefaults() {
-	if self.Host == "" {
-		self.Host = "localhost"
-	}
-}
-
-func (self *DbConfig) ShortAdapter() (short string){
-	if (regexp.MustCompile("postgres").MatchString(self.Adapter)){ return "pg"}
-	if (regexp.MustCompile("mysql").MatchString(self.Adapter))	 { return "mysql"}
-	if (regexp.MustCompile("sqlite").MatchString(self.Adapter))	 { return "sqlite"}
-
-	return self.Adapter
-}
-
 func get_config(yamlData []byte, environment string) (config DbConfig, err error){
 	m := make(map[string]DbConfig)
 	err = yaml.Unmarshal(yamlData, &m)
@@ -133,36 +154,31 @@ func get_yaml_path (path string) (out string, err error) {
 	return path, err
 }
 
-type DbConfig struct {
-	Adapter string
-	Host string
-	Database string
-	Username string
-	Password string
-}
-
 func main() {
 	flag.Usage = usage
 	var force bool
 	var path string
 
 	flag.BoolVar(&force, "F", false, "Show restore operation")
-	flag.StringVar(&path, "p", "", "Path to yaml (otherwise config/database.yml")
+	flag.StringVar(&path, "p", "", "Path to yaml (otherwise config/database.yml)")
 	flag.Parse()
 
 	environment := get_environment(flag.Arg(0))
 	yamlFile, err := get_yaml_path(path)
 	if err != nil {
-		log.Fatalf("No Yaml file found: %v", err)
+		printError(fmt.Sprintf("Couldn't find a database.yml to parse."))
+		os.Exit(2)
 	}
 	name := fmt.Sprintf("%s_%s_%s", filepath.Base(filepath.Dir(filepath.Dir(yamlFile))), environment[0:3], time.Now().Format("20060102"))
 	yamlData, err := ioutil.ReadFile(yamlFile)
 	if err != nil {
-		log.Fatalf("Error Reading Yaml: %v", err)
+		printError(fmt.Sprintf("Couldn't read the yaml: %v", err))
+		os.Exit(2)
 	}
 	config, err := get_config(yamlData, environment)
 	if err != nil {
-		log.Fatalf("Error Parsing Yaml: %v", err)
+		printError(fmt.Sprintf("%s", err))
+		os.Exit(2)
 	}
 	dumpers := map[string]func(DbConfig, string) string {
 		"pg": pg_dump,
@@ -182,6 +198,6 @@ func main() {
 			fmt.Printf("%s", restorers[config.ShortAdapter()](config, name))
 		}
 	} else {
-		log.Fatalf("Sorry, don't know how to export %s", config.Adapter)
+		printError(fmt.Sprintf("Sorry, don't know how to export %s", config.Adapter))
 	}
 }
