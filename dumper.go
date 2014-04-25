@@ -51,15 +51,6 @@ func mysql_restore(config DbConfig, name string) (out string){
 	return command
 }
 
-func fetch(l map[string]interface{}, key string, value interface{}) (out interface{}) {
-	if val, ok := l[key]; ok {
-		return val
-	} else {
-		return value
-	}
-}
-
-
 func pg_dump(config DbConfig, name string) (out string) {
 	username := config.Username
 	hostname := config.Host
@@ -92,6 +83,14 @@ func (self *DbConfig) SetDefaults() {
 	if self.Host == "" {
 		self.Host = "localhost"
 	}
+}
+
+func (self *DbConfig) ShortAdapter() (short string){
+	if (regexp.MustCompile("postgres").MatchString(self.Adapter)){ return "pg"}
+	if (regexp.MustCompile("mysql").MatchString(self.Adapter))	 { return "mysql"}
+	if (regexp.MustCompile("sqlite").MatchString(self.Adapter))	 { return "sqlite"}
+
+	return self.Adapter
 }
 
 func get_config(yamlData []byte, environment string) (config DbConfig, err error){
@@ -165,26 +164,24 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error Parsing Yaml: %v", err)
 	}
-	adapter := config.Adapter
-	pg := regexp.MustCompile("postgres")
-	mysql := regexp.MustCompile("mysql")
-	foundPg := pg.MatchString(adapter)
-	foundMysql := mysql.MatchString(adapter)
-
-	fmt.Printf("%s\n\n", green("Dump:"))
-	if foundPg {
-		dump := pg_dump(config, name)
-		fmt.Printf("%s\n", green(dump))
+	dumpers := map[string]func(DbConfig, string) string {
+		"pg": pg_dump,
+		"mysql": mysql_dump,
+	}
+	restorers := map[string]func(DbConfig, string) string {
+		"pg": pg_restore,
+		"mysql": mysql_restore,
+	}
+	f, ok := dumpers[config.ShortAdapter()]
+	if ok {
+		dump := f(config, name)
+		fmt.Printf("%s\n\n", green("Dump:"))
+		fmt.Printf("%s\n", dump)
 		if force {
 			fmt.Printf("\n%s\n\n", red("Restore:"))
-			fmt.Printf("%s", pg_restore(config, name))
+			fmt.Printf("%s", restorers[config.ShortAdapter()](config, name))
 		}
-	}
-	if foundMysql {
-		fmt.Printf("%s\n", mysql_dump(config, name))
-		if force {
-			fmt.Printf("\n\n%s\n\n", red("Restore:"))
-			mysql_restore(config, name)
-		}
+	} else {
+		log.Fatalf("Sorry, don't know how to export %s", config.Adapter)
 	}
 }

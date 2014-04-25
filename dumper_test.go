@@ -10,31 +10,35 @@ func TestGreen(t *testing.T) {
 	assert.Equal(t, green("some string"), "\033[32msome string\033[0m")
 }
 
-func TestFetchWithExistingKey(t *testing.T) {
-	k := map[string]interface{}{"a": "key"}
-	assert.Equal(t, "key", fetch(k, "a", "not key"))
-}
-
-func TestFetchWithoutExistingKey(t *testing.T) {
-	k := map[string]interface{}{"a": "key"}
-	assert.Equal(t, "not key", fetch(k, "x", "not key"))
-}
-
 func TestGetConfigSetsDefaults(t *testing.T) {
-	config, _ := get_config([]byte(""), "dev")
+	var data = `
+dev:
+  key: "bla"
+`
+	config, _ := get_config([]byte(data), "dev")
 	assert.Equal(t, "localhost", config.Host)
+}
+
+func TestConfigShortAdapter(t *testing.T) {
+	var examples = map[string]string {
+		"postgresql": "pg",
+		"postgres": "pg",
+		"sqlite3": "sqlite",
+		"sqlite": "sqlite",
+		"mysql2": "mysql",
+		"mysql": "mysql",
+		"weird": "weird",
+	}
+	for k,v := range examples {
+		short := (&DbConfig{Adapter: k}).ShortAdapter()
+		assert.Equal(t, short, v)
+	}
 }
 
 func TestPGDumpSkipsPasswordIfNoneFound(t *testing.T) {
 	k := DbConfig{}
 	r := pg_dump(k, "bla")
 	assert.False(t, strings.Contains(r, "PGPASSWORD"))
-}
-
-func TestPGDumpSetsLocalhostIfNoHostFound(t *testing.T) {
-	k := DbConfig{}
-	r := pg_dump(k, "bla")
-	assert.True(t, strings.Contains(r, "-h localhost"))
 }
 
 func TestPGDumpSetsHostIfFound(t *testing.T) {
