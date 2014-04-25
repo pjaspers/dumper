@@ -66,9 +66,23 @@ func usage() {
 	os.Exit(2)
 }
 
-func sqlite3_dump(l interface{}, name string) {
-	fmt.Printf("sqlite3 db/development.sqlite3 .dump > dump")
+//
+// ## SQLite
+//
+
+func sqlite_dump(config DbConfig, name string) (out string){
+	command := fmt.Sprintf("sqlite3 %s .dump > %s.dump", config.Database, name)
+	return command
 }
+
+func sqlite_restore(config DbConfig, name string) (out string){
+	command := fmt.Sprintf("sqlite3 %s < %s.dump", config.Database, name)
+	return command
+}
+
+//
+// ## MySQL
+//
 
 func mysql_dump(config DbConfig, name string) (out string){
 	command := fmt.Sprintf("mysqldump -u %s -p -h %s %s > %s.sql", config.Username, config.Host, config.Database, name)
@@ -85,6 +99,10 @@ func mysql_restore(config DbConfig, name string) (out string){
 	}
 	return command
 }
+
+//
+// ## PostgreSQL
+//
 
 func pg_dump(config DbConfig, name string) (out string) {
 	username := config.Username
@@ -133,11 +151,14 @@ func get_config(yamlData []byte, environment string) (config DbConfig, err error
 	return config, nil
 }
 
+// Tries to get the directory from which the app is called
 var currentDir = func() string {
 	p,_ := filepath.Abs(filepath.Dir(os.Args[0]))
 	return p
 }
 
+// Simple check to see if a file exists, mainly added so it can be
+// stubbed in the tests.
 var file_exists = func(path string) (err error) {
 	_, err = os.Stat(path)
 	return err
@@ -183,10 +204,12 @@ func main() {
 	dumpers := map[string]func(DbConfig, string) string {
 		"pg": pg_dump,
 		"mysql": mysql_dump,
+		"sqlite": sqlite_dump,
 	}
 	restorers := map[string]func(DbConfig, string) string {
 		"pg": pg_restore,
 		"mysql": mysql_restore,
+		"sqlite": sqlite_restore,
 	}
 	f, ok := dumpers[config.ShortAdapter()]
 	if ok {
