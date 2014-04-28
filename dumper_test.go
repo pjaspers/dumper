@@ -20,16 +20,16 @@ dev:
 }
 
 func TestConfigShortAdapter(t *testing.T) {
-	var examples = map[string]string {
+	var examples = map[string]string{
 		"postgresql": "pg",
-		"postgres": "pg",
-		"sqlite3": "sqlite",
-		"sqlite": "sqlite",
-		"mysql2": "mysql",
-		"mysql": "mysql",
-		"weird": "weird",
+		"postgres":   "pg",
+		"sqlite3":    "sqlite",
+		"sqlite":     "sqlite",
+		"mysql2":     "mysql",
+		"mysql":      "mysql",
+		"weird":      "weird",
 	}
-	for k,v := range examples {
+	for k, v := range examples {
 		short := (&DbConfig{Adapter: k}).ShortAdapter()
 		assert.Equal(t, short, v)
 	}
@@ -63,14 +63,14 @@ func TestIfNoPathSuppliedGetCurrentDir(t *testing.T) {
 
 func TestIfPathSuppliedFindYaml(t *testing.T) {
 	currentDir = func() (s string) { return "/this/dir" }
-	file_exists = func(path string) (e error){return nil}
+	file_exists = func(path string) (e error) { return nil }
 	path, _ := get_yaml_path("/some/other/dir")
 	assert.Equal(t, "/some/other/dir/config/database.yml", path)
 }
 
 func TestIfYamlGivenUseAllTheYamls(t *testing.T) {
 	currentDir = func() (s string) { return "" }
-	file_exists = func(path string) (e error){return nil}
+	file_exists = func(path string) (e error) { return nil }
 	path, _ := get_yaml_path("ding.yml")
 	assert.Equal(t, "ding.yml", path)
 }

@@ -19,8 +19,8 @@ import (
 // Each Rails `database.yml` environment block has the following structure, so
 // it maps to this struct.
 type DbConfig struct {
-	Adapter string
-	Host string
+	Adapter  string
+	Host     string
 	Database string
 	Username string
 	Password string
@@ -35,10 +35,16 @@ func (self *DbConfig) SetDefaults() {
 
 // These get used later on to find the correct methods to call for dumping or
 // restoring (`pg_dump`)
-func (self *DbConfig) ShortAdapter() (short string){
-	if (regexp.MustCompile("postgres").MatchString(self.Adapter)){ return "pg"}
-	if (regexp.MustCompile("mysql").MatchString(self.Adapter))	 { return "mysql"}
-	if (regexp.MustCompile("sqlite").MatchString(self.Adapter))	 { return "sqlite"}
+func (self *DbConfig) ShortAdapter() (short string) {
+	if regexp.MustCompile("postgres").MatchString(self.Adapter) {
+		return "pg"
+	}
+	if regexp.MustCompile("mysql").MatchString(self.Adapter) {
+		return "mysql"
+	}
+	if regexp.MustCompile("sqlite").MatchString(self.Adapter) {
+		return "sqlite"
+	}
 
 	return self.Adapter
 }
@@ -70,12 +76,12 @@ func usage() {
 // ## SQLite
 //
 
-func sqlite_dump(config DbConfig, name string) (out string){
+func sqlite_dump(config DbConfig, name string) (out string) {
 	command := fmt.Sprintf("sqlite3 %s .dump > %s.dump", config.Database, name)
 	return command
 }
 
-func sqlite_restore(config DbConfig, name string) (out string){
+func sqlite_restore(config DbConfig, name string) (out string) {
 	command := fmt.Sprintf("sqlite3 %s < %s.dump", config.Database, name)
 	return command
 }
@@ -84,7 +90,7 @@ func sqlite_restore(config DbConfig, name string) (out string){
 // ## MySQL
 //
 
-func mysql_dump(config DbConfig, name string) (out string){
+func mysql_dump(config DbConfig, name string) (out string) {
 	command := fmt.Sprintf("mysqldump -u %s -p -h %s %s > %s.sql", config.Username, config.Host, config.Database, name)
 	if len(config.Password) > 0 {
 		command = fmt.Sprintf("Password: %s\n\n%s", config.Password, command)
@@ -92,7 +98,7 @@ func mysql_dump(config DbConfig, name string) (out string){
 	return command
 }
 
-func mysql_restore(config DbConfig, name string) (out string){
+func mysql_restore(config DbConfig, name string) (out string) {
 	command := fmt.Sprintf("mysql -u %s -p -h %s %s < %s.sql", config.Username, config.Host, config.Database, name)
 	if len(config.Password) > 0 {
 		command = fmt.Sprintf("Password: %s\n\n%s", config.Password, command)
@@ -114,7 +120,7 @@ func pg_dump(config DbConfig, name string) (out string) {
 	return command
 }
 
-func pg_restore(config DbConfig, name string) (out string){
+func pg_restore(config DbConfig, name string) (out string) {
 	username := config.Username
 	hostname := config.Host
 	command := fmt.Sprintf("pg_restore --verbose --clean --no-acl --no-owner -h %s -U %s -d %s %s.dump", hostname, username, config.Database, name)
@@ -124,7 +130,7 @@ func pg_restore(config DbConfig, name string) (out string){
 	return command
 }
 
-func get_environment(argument string) (environment string){
+func get_environment(argument string) (environment string) {
 	environment = "development"
 	if strings.TrimSpace(argument) != "" {
 		environment = strings.TrimSpace(argument)
@@ -132,7 +138,7 @@ func get_environment(argument string) (environment string){
 	return environment
 }
 
-func get_config(yamlData []byte, environment string) (config DbConfig, err error){
+func get_config(yamlData []byte, environment string) (config DbConfig, err error) {
 	m := make(map[string]DbConfig)
 	err = yaml.Unmarshal(yamlData, &m)
 	if err != nil {
@@ -140,7 +146,7 @@ func get_config(yamlData []byte, environment string) (config DbConfig, err error
 	}
 	config, ok := m[environment]
 	if !ok {
-		var keys[]string
+		var keys []string
 		for key, _ := range m {
 			keys = append(keys, key)
 		}
@@ -153,7 +159,7 @@ func get_config(yamlData []byte, environment string) (config DbConfig, err error
 
 // Tries to get the directory from which the app is called
 var currentDir = func() string {
-	p,_ := filepath.Abs(filepath.Dir(os.Args[0]))
+	p, _ := filepath.Abs(filepath.Dir(os.Args[0]))
 	return p
 }
 
@@ -164,7 +170,7 @@ var file_exists = func(path string) (err error) {
 	return err
 }
 
-func get_yaml_path (path string) (out string, err error) {
+func get_yaml_path(path string) (out string, err error) {
 	if path == "" {
 		path = currentDir()
 	}
@@ -201,14 +207,14 @@ func main() {
 		printError(fmt.Sprintf("%s", err))
 		os.Exit(2)
 	}
-	dumpers := map[string]func(DbConfig, string) string {
-		"pg": pg_dump,
-		"mysql": mysql_dump,
+	dumpers := map[string]func(DbConfig, string) string{
+		"pg":     pg_dump,
+		"mysql":  mysql_dump,
 		"sqlite": sqlite_dump,
 	}
-	restorers := map[string]func(DbConfig, string) string {
-		"pg": pg_restore,
-		"mysql": mysql_restore,
+	restorers := map[string]func(DbConfig, string) string{
+		"pg":     pg_restore,
+		"mysql":  mysql_restore,
 		"sqlite": sqlite_restore,
 	}
 	f, ok := dumpers[config.ShortAdapter()]
