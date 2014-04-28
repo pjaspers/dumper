@@ -40,6 +40,10 @@ func (self *DbConfig) SetExcludedTables(ignored []string) {
 	}
 }
 
+func (self *DbConfig) HasExcludedTables() bool {
+	return len(self.ExcludedTables) > 0
+}
+
 func (self *DbConfig) ExcludedTablesWithFlag(flag string) string {
 	values := make([]string, 0, len(self.ExcludedTables))
 	for _, table := range self.ExcludedTables {
@@ -106,7 +110,16 @@ func sqlite_restore(config DbConfig, name string) (out string) {
 //
 
 func mysql_dump(config DbConfig, name string) (out string) {
-	command := fmt.Sprintf("mysqldump -u %s -p -h %s %s > %s.sql", config.Username, config.Host, config.Database, name)
+	command := ""
+	if config.HasExcludedTables() {
+		dump_structure := fmt.Sprintf("mysqldump -u %s -p -h %s --no-data %s > %s.sql", config.Username, config.Host, config.Database, name)
+		exclude_command := config.ExcludedTablesWithFlag("--ignore-table")
+		dump_without_tables := fmt.Sprintf("mysqldump -u %s -p -h %s %s %s > %s.sql", config.Username, config.Host, exclude_command, config.Database, name)
+		command = fmt.Sprintf("%s && %s", dump_structure, dump_without_tables)
+	} else {
+		command = fmt.Sprintf("mysqldump -u %s -p -h %s %s > %s.sql", config.Username, config.Host, config.Database, name)
+	}
+
 	if len(config.Password) > 0 {
 		command = fmt.Sprintf("Password: %s\n\n%s", config.Password, command)
 	}
@@ -128,7 +141,13 @@ func mysql_restore(config DbConfig, name string) (out string) {
 func pg_dump(config DbConfig, name string) (out string) {
 	username := config.Username
 	hostname := config.Host
-	command := fmt.Sprintf("pg_dump -Fc --no-acl --no-owner --clean -U %s -h %s %s > %s.dump", username, hostname, config.Database, name)
+	command := ""
+	if config.HasExcludedTables() {
+		exclude_command := config.ExcludedTablesWithFlag("--exclude-table-data")
+		command = fmt.Sprintf("pg_dump -Fc --no-acl --no-owner --clean -U %s -h %s %s %s > %s.dump", username, hostname, exclude_command, config.Database, name)
+	} else {
+		command = fmt.Sprintf("pg_dump -Fc --no-acl --no-owner --clean -U %s -h %s %s > %s.dump", username, hostname, config.Database, name)
+	}
 	if len(config.Password) > 0 {
 		command = fmt.Sprintf("PGPASSWORD=%s %s", config.Password, command)
 	}

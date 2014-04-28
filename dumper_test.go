@@ -90,3 +90,15 @@ func TestPGDumpWithAllData(t *testing.T) {
 	expected := "PGPASSWORD=Bob pg_dump -Fc --no-acl --no-owner --clean -U Franz -h somehost box > franz_bob.dump"
 	assert.Equal(t, expected, pg_dump(k, "franz_bob"))
 }
+
+func TestPGDumpWithAllDataAndIgnoredTables(t *testing.T) {
+	k := DbConfig{
+		Host:     "somehost",
+		Username: "Franz",
+		Password: "Bob",
+		Database: "box",
+		ExcludedTables: []string{"a", "b"},
+	}
+	expected := "PGPASSWORD=Bob pg_dump -Fc --no-acl --no-owner --clean -U Franz -h somehost --exclude-table-data=a --exclude-table-data=b box > franz_bob.dump"
+	assert.Equal(t, expected, pg_dump(k, "franz_bob"))
+}
