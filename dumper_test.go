@@ -35,6 +35,11 @@ func TestConfigShortAdapter(t *testing.T) {
 	}
 }
 
+func TestExcludedTablesOnConfig(t *testing.T) {
+	k := DbConfig{}
+	k.SetExcludedTables([]string{"a", "b"})
+	assert.Equal(t, "-e=a -e=b", k.ExcludedTablesWithFlag("-e"))
+}
 func TestPGDumpSkipsPasswordIfNoneFound(t *testing.T) {
 	k := DbConfig{}
 	r := pg_dump(k, "bla")

@@ -19,11 +19,12 @@ import (
 // Each Rails `database.yml` environment block has the following structure, so
 // it maps to this struct.
 type DbConfig struct {
-	Adapter  string
-	Host     string
-	Database string
-	Username string
-	Password string
+	Adapter        string
+	Host           string
+	Database       string
+	Username       string
+	Password       string
+	ExcludedTables []string
 }
 
 // If no host is set, assume localhost.
@@ -31,6 +32,20 @@ func (self *DbConfig) SetDefaults() {
 	if self.Host == "" {
 		self.Host = "localhost"
 	}
+}
+
+func (self *DbConfig) SetExcludedTables(ignored []string) {
+	if len(ignored) > 0 {
+		self.ExcludedTables = ignored
+	}
+}
+
+func (self *DbConfig) ExcludedTablesWithFlag(flag string) string {
+	values := make([]string, 0, len(self.ExcludedTables))
+	for _, table := range self.ExcludedTables {
+		values = append(values, fmt.Sprintf("%s=%s", flag, table))
+	}
+	return fmt.Sprintf("%s", strings.Join(values, " "))
 }
 
 // These get used later on to find the correct methods to call for dumping or
@@ -181,13 +196,30 @@ func get_yaml_path(path string) (out string, err error) {
 	return path, err
 }
 
+type ignored []string
+
+func (i *ignored) String() string {
+	return fmt.Sprint(*i)
+}
+
+// Set is the method to set the flag value, part of the flag.Value interface.
+// Set's argument is a string to be parsed to set the flag.
+// It's a comma-separated list, so we split it.
+func (i *ignored) Set(value string) error {
+	for _, dt := range strings.Split(value, ",") {
+		*i = append(*i, dt)
+	}
+	return nil
+}
+
 func main() {
 	flag.Usage = usage
 	var force bool
 	var path string
-
+	var ignoreFlag ignored
 	flag.BoolVar(&force, "F", false, "Show restore operation")
 	flag.StringVar(&path, "p", "", "Path to yaml (otherwise config/database.yml)")
+	flag.Var(&ignoreFlag, "i", "comma-separated list of tables to ignore")
 	flag.Parse()
 
 	environment := get_environment(flag.Arg(0))
@@ -203,6 +235,7 @@ func main() {
 		os.Exit(2)
 	}
 	config, err := get_config(yamlData, environment)
+	config.SetExcludedTables(ignoreFlag)
 	if err != nil {
 		printError(fmt.Sprintf("%s", err))
 		os.Exit(2)
