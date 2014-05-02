@@ -19,6 +19,10 @@ Dump:
 PGPASSWORD=lepass pg_dump -Fc --no-acl --no-owner --clean -U leuser -h lehost ledatabase > app_name_sta_20140503.dump
 ```
 
+## Installing
+
+Download the [binary](https://github.com/pjaspers/dumper/releases/download/0.0.1/dumper) and place it somewhere in your `PATH`.
+
 ## What else does it do?
 
 ```
