@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/pjaspers/dumper.svg?branch=master)](https://travis-ci.org/pjaspers/dumper)
+
 ## What does it do?
 
 I'm working with a varying amount of Rails apps, and switching between them regularly requires me to dump a database to a sql file, or load a sql file into the database.
