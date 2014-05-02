@@ -276,7 +276,7 @@ func main() {
 		fmt.Printf("%s\n", dump)
 		if force {
 			fmt.Printf("\n%s\n\n", red("Restore:"))
-			fmt.Printf("%s", restorers[config.ShortAdapter()](config, name))
+			fmt.Printf("%s\n", restorers[config.ShortAdapter()](config, name))
 		}
 	} else {
 		printError(fmt.Sprintf("Sorry, don't know how to export %s", config.Adapter))
