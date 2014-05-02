@@ -2,7 +2,6 @@ language: go
 
 install:
   - go get gopkg.in/yaml.v1
-  - go get github.com/mrb/hob
   - go get github.com/stretchr/testify/assert
 
 go:
