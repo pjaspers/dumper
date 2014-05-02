@@ -15,7 +15,7 @@ func TestGetConfigSetsDefaults(t *testing.T) {
 dev:
   key: "bla"
 `
-	config, _ := get_config([]byte(data), "dev")
+	config, _ := getConfig([]byte(data), "dev")
 	assert.Equal(t, "localhost", config.Host)
 }
 
@@ -42,41 +42,41 @@ func TestExcludedTablesOnConfig(t *testing.T) {
 }
 func TestPGDumpSkipsPasswordIfNoneFound(t *testing.T) {
 	k := DbConfig{}
-	r := pg_dump(k, "bla")
+	r := pgDump(k, "bla")
 	assert.False(t, strings.Contains(r, "PGPASSWORD"))
 }
 
 func TestPGDumpSetsHostIfFound(t *testing.T) {
 	k := DbConfig{Host: "somehost"}
-	r := pg_dump(k, "bla")
+	r := pgDump(k, "bla")
 	assert.True(t, strings.Contains(r, "-h somehost"))
 }
 
 func TestGetEnvironmentWithoutArgumnet(t *testing.T) {
-	assert.Equal(t, "development", get_environment(""))
+	assert.Equal(t, "development", getEnvironment(""))
 }
 
 func TestGetEnvironmentWithArgument(t *testing.T) {
-	assert.Equal(t, "staging", get_environment("staging"))
+	assert.Equal(t, "staging", getEnvironment("staging"))
 }
 
 func TestIfNoPathSuppliedGetCurrentDir(t *testing.T) {
 	currentDir = func() (s string) { return "/some/path/to/current/dir" }
-	path, _ := get_yaml_path("")
+	path, _ := getYamlPath("")
 	assert.Equal(t, "/some/path/to/current/dir/config/database.yml", path)
 }
 
 func TestIfPathSuppliedFindYaml(t *testing.T) {
 	currentDir = func() (s string) { return "/this/dir" }
-	file_exists = func(path string) (e error) { return nil }
-	path, _ := get_yaml_path("/some/other/dir")
+	fileExists = func(path string) (e error) { return nil }
+	path, _ := getYamlPath("/some/other/dir")
 	assert.Equal(t, "/some/other/dir/config/database.yml", path)
 }
 
 func TestIfYamlGivenUseAllTheYamls(t *testing.T) {
 	currentDir = func() (s string) { return "" }
-	file_exists = func(path string) (e error) { return nil }
-	path, _ := get_yaml_path("ding.yml")
+	fileExists = func(path string) (e error) { return nil }
+	path, _ := getYamlPath("ding.yml")
 	assert.Equal(t, "ding.yml", path)
 }
 
@@ -88,17 +88,17 @@ func TestPGDumpWithAllData(t *testing.T) {
 		Database: "box",
 	}
 	expected := "PGPASSWORD=Bob pg_dump -Fc --no-acl --no-owner --clean -U Franz -h somehost box > franz_bob.dump"
-	assert.Equal(t, expected, pg_dump(k, "franz_bob"))
+	assert.Equal(t, expected, pgDump(k, "franz_bob"))
 }
 
 func TestPGDumpWithAllDataAndIgnoredTables(t *testing.T) {
 	k := DbConfig{
-		Host:     "somehost",
-		Username: "Franz",
-		Password: "Bob",
-		Database: "box",
+		Host:           "somehost",
+		Username:       "Franz",
+		Password:       "Bob",
+		Database:       "box",
 		ExcludedTables: []string{"a", "b"},
 	}
 	expected := "PGPASSWORD=Bob pg_dump -Fc --no-acl --no-owner --clean -U Franz -h somehost --exclude-table-data=a --exclude-table-data=b box > franz_bob.dump"
-	assert.Equal(t, expected, pg_dump(k, "franz_bob"))
+	assert.Equal(t, expected, pgDump(k, "franz_bob"))
 }

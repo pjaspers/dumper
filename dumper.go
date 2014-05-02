@@ -53,7 +53,7 @@ func (self *DbConfig) ExcludedTablesWithFlag(flag string) string {
 }
 
 // These get used later on to find the correct methods to call for dumping or
-// restoring (`pg_dump`)
+// restoring (`pgDump`)
 func (self *DbConfig) ShortAdapter() (short string) {
 	if regexp.MustCompile("postgres").MatchString(self.Adapter) {
 		return "pg"
@@ -95,12 +95,12 @@ func usage() {
 // ## SQLite
 //
 
-func sqlite_dump(config DbConfig, name string) (out string) {
+func sqliteDump(config DbConfig, name string) (out string) {
 	command := fmt.Sprintf("sqlite3 %s .dump > %s.dump", config.Database, name)
 	return command
 }
 
-func sqlite_restore(config DbConfig, name string) (out string) {
+func sqliteRestore(config DbConfig, name string) (out string) {
 	command := fmt.Sprintf("sqlite3 %s < %s.dump", config.Database, name)
 	return command
 }
@@ -109,13 +109,13 @@ func sqlite_restore(config DbConfig, name string) (out string) {
 // ## MySQL
 //
 
-func mysql_dump(config DbConfig, name string) (out string) {
+func mysqlDump(config DbConfig, name string) (out string) {
 	command := ""
 	if config.HasExcludedTables() {
-		dump_structure := fmt.Sprintf("mysqldump -u %s -p -h %s --no-data %s > %s.sql", config.Username, config.Host, config.Database, name)
-		exclude_command := config.ExcludedTablesWithFlag("--ignore-table")
-		dump_without_tables := fmt.Sprintf("mysqldump -u %s -p -h %s %s %s > %s.sql", config.Username, config.Host, exclude_command, config.Database, name)
-		command = fmt.Sprintf("%s && %s", dump_structure, dump_without_tables)
+		structure := fmt.Sprintf("mysqldump -u %s -p -h %s --no-data %s > %s.sql", config.Username, config.Host, config.Database, name)
+		exclude := config.ExcludedTablesWithFlag("--ignore-table")
+		dumpWithoutTables := fmt.Sprintf("mysqldump -u %s -p -h %s %s %s > %s.sql", config.Username, config.Host, exclude, config.Database, name)
+		command = fmt.Sprintf("%s && %s", structure, dumpWithoutTables)
 	} else {
 		command = fmt.Sprintf("mysqldump -u %s -p -h %s %s > %s.sql", config.Username, config.Host, config.Database, name)
 	}
@@ -126,7 +126,7 @@ func mysql_dump(config DbConfig, name string) (out string) {
 	return command
 }
 
-func mysql_restore(config DbConfig, name string) (out string) {
+func mysqlRestore(config DbConfig, name string) (out string) {
 	command := fmt.Sprintf("mysql -u %s -p -h %s %s < %s.sql", config.Username, config.Host, config.Database, name)
 	if len(config.Password) > 0 {
 		command = fmt.Sprintf("Password: %s\n\n%s", config.Password, command)
@@ -138,13 +138,13 @@ func mysql_restore(config DbConfig, name string) (out string) {
 // ## PostgreSQL
 //
 
-func pg_dump(config DbConfig, name string) (out string) {
+func pgDump(config DbConfig, name string) (out string) {
 	username := config.Username
 	hostname := config.Host
 	command := ""
 	if config.HasExcludedTables() {
-		exclude_command := config.ExcludedTablesWithFlag("--exclude-table-data")
-		command = fmt.Sprintf("pg_dump -Fc --no-acl --no-owner --clean -U %s -h %s %s %s > %s.dump", username, hostname, exclude_command, config.Database, name)
+		exclude := config.ExcludedTablesWithFlag("--exclude-table-data")
+		command = fmt.Sprintf("pg_dump -Fc --no-acl --no-owner --clean -U %s -h %s %s %s > %s.dump", username, hostname, exclude, config.Database, name)
 	} else {
 		command = fmt.Sprintf("pg_dump -Fc --no-acl --no-owner --clean -U %s -h %s %s > %s.dump", username, hostname, config.Database, name)
 	}
@@ -154,17 +154,17 @@ func pg_dump(config DbConfig, name string) (out string) {
 	return command
 }
 
-func pg_restore(config DbConfig, name string) (out string) {
+func pgRestore(config DbConfig, name string) (out string) {
 	username := config.Username
 	hostname := config.Host
-	command := fmt.Sprintf("pg_restore --verbose --clean --no-acl --no-owner -h %s -U %s -d %s %s.dump", hostname, username, config.Database, name)
+	command := fmt.Sprintf("pgRestore --verbose --clean --no-acl --no-owner -h %s -U %s -d %s %s.dump", hostname, username, config.Database, name)
 	if len(config.Password) > 0 {
 		command = fmt.Sprintf("PGPASSWORD=%s %s", config.Password, command)
 	}
 	return command
 }
 
-func get_environment(argument string) (environment string) {
+func getEnvironment(argument string) (environment string) {
 	environment = "development"
 	if strings.TrimSpace(argument) != "" {
 		environment = strings.TrimSpace(argument)
@@ -172,7 +172,7 @@ func get_environment(argument string) (environment string) {
 	return environment
 }
 
-func get_config(yamlData []byte, environment string) (config DbConfig, err error) {
+func getConfig(yamlData []byte, environment string) (config DbConfig, err error) {
 	m := make(map[string]DbConfig)
 	err = yaml.Unmarshal(yamlData, &m)
 	if err != nil {
@@ -199,19 +199,19 @@ var currentDir = func() string {
 
 // Simple check to see if a file exists, mainly added so it can be
 // stubbed in the tests.
-var file_exists = func(path string) (err error) {
+var fileExists = func(path string) (err error) {
 	_, err = os.Stat(path)
 	return err
 }
 
-func get_yaml_path(path string) (out string, err error) {
+func getYamlPath(path string) (out string, err error) {
 	if path == "" {
 		path = currentDir()
 	}
 	if filepath.Ext(path) != ".yml" {
 		path = filepath.Join(path, "config", "database.yml")
 	}
-	err = file_exists(path)
+	err = fileExists(path)
 	return path, err
 }
 
@@ -241,8 +241,8 @@ func main() {
 	flag.Var(&ignoreFlag, "i", "comma-separated list of tables to ignore")
 	flag.Parse()
 
-	environment := get_environment(flag.Arg(0))
-	yamlFile, err := get_yaml_path(path)
+	environment := getEnvironment(flag.Arg(0))
+	yamlFile, err := getYamlPath(path)
 	if err != nil {
 		printError(fmt.Sprintf("Couldn't find a database.yml to parse."))
 		os.Exit(2)
@@ -253,21 +253,21 @@ func main() {
 		printError(fmt.Sprintf("Couldn't read the yaml: %v", err))
 		os.Exit(2)
 	}
-	config, err := get_config(yamlData, environment)
+	config, err := getConfig(yamlData, environment)
 	config.SetExcludedTables(ignoreFlag)
 	if err != nil {
 		printError(fmt.Sprintf("%s", err))
 		os.Exit(2)
 	}
 	dumpers := map[string]func(DbConfig, string) string{
-		"pg":     pg_dump,
-		"mysql":  mysql_dump,
-		"sqlite": sqlite_dump,
+		"pg":     pgDump,
+		"mysql":  mysqlDump,
+		"sqlite": sqliteDump,
 	}
 	restorers := map[string]func(DbConfig, string) string{
-		"pg":     pg_restore,
-		"mysql":  mysql_restore,
-		"sqlite": sqlite_restore,
+		"pg":     pgRestore,
+		"mysql":  mysqlRestore,
+		"sqlite": sqliteRestore,
 	}
 	f, ok := dumpers[config.ShortAdapter()]
 	if ok {
