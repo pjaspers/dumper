@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const Version = "0.0.1"
+
 // # Database Config struct.
 //
 // Each Rails `database.yml` environment block has the following structure, so
@@ -235,11 +237,18 @@ func main() {
 	flag.Usage = usage
 	var force bool
 	var path string
+	var version bool
 	var ignoreFlag ignored
 	flag.BoolVar(&force, "F", false, "Show restore operation")
 	flag.StringVar(&path, "p", "", "Path to yaml (otherwise config/database.yml)")
 	flag.Var(&ignoreFlag, "i", "comma-separated list of tables to ignore")
+	flag.BoolVar(&version, "v", false, "Prints current dumper version")
 	flag.Parse()
+
+	if version {
+		fmt.Println(Version)
+		os.Exit(0)
+	}
 
 	environment := getEnvironment(flag.Arg(0))
 	yamlFile, err := getYamlPath(path)
