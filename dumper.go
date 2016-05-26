@@ -159,7 +159,7 @@ func pgDump(config DbConfig, name string) (out string) {
 func pgRestore(config DbConfig, name string) (out string) {
 	username := config.Username
 	hostname := config.Host
-	command := fmt.Sprintf("pgRestore --verbose --clean --no-acl --no-owner -h %s -U %s -d %s %s.dump", hostname, username, config.Database, name)
+	command := fmt.Sprintf("pg_restore --verbose --clean --no-acl --no-owner -h %s -U %s -d %s %s.dump", hostname, username, config.Database, name)
 	if len(config.Password) > 0 {
 		command = fmt.Sprintf("PGPASSWORD=%s %s", config.Password, command)
 	}
